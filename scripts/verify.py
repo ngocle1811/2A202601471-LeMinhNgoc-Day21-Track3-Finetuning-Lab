@@ -32,7 +32,11 @@ def check(name: str, status: str, detail: str = "") -> None:
 
 
 def _sha(path: pathlib.Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()[:16]
+    # Git may check text files out with CRLF on Windows even though the committed
+    # corpus and its declared checksums use LF. Canonicalise only line endings so the
+    # integrity gate detects content edits rather than the operating system checkout.
+    canonical = path.read_bytes().replace(b"\r\n", b"\n")
+    return hashlib.sha256(canonical).hexdigest()[:16]
 
 
 def _load_json(path: pathlib.Path):
@@ -238,8 +242,8 @@ def full() -> None:
         v = verdict["verdict"]
         check("verdict recorded", OK,
               f"{'PASSED' if v.get('passed') else 'FAILED'} "
-              f"(target Δ {v.get('target_delta', 0):+.3f}, "
-              f"regression Δ {v.get('regression_delta', 0):+.3f})")
+              f"(target delta {v.get('target_delta', 0):+.3f}, "
+              f"regression delta {v.get('regression_delta', 0):+.3f})")
         if not v.get("passed"):
             check("note", WARN,
                   "A FAILED verdict is fully gradeable — analyse it honestly in REPORT.md "
